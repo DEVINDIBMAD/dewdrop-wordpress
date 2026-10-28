@@ -1,0 +1,18 @@
+2026-10-23T01:45:52+00:00 DEBUG #8130.WC - [New Request] POST / @ 01:45:51.332
+2026-10-23T01:45:52+00:00 ERROR #8130.WC - SDK v6 client token runtime error: Cannot request a PayPal client token without a client ID and secret.
+2026-10-23T01:47:59+00:00 DEBUG #9175.WC - [New Request] POST / @ 01:47:58.895
+2026-10-23T01:47:59+00:00 ERROR #9175.WC - SDK v6 client token runtime error: Cannot request a PayPal client token without a client ID and secret.
+2026-10-23T01:48:26+00:00 DEBUG #6264.WC - [New Request] POST / @ 01:48:25.697
+2026-10-23T01:48:26+00:00 ERROR #6264.WC - SDK v6 client token runtime error: Cannot request a PayPal client token without a client ID and secret.
+2026-10-23T01:48:43+00:00 DEBUG #2692.WC - [New Request] POST / @ 01:48:43.403
+2026-10-23T01:48:43+00:00 ERROR #2692.WC - SDK v6 client token runtime error: Cannot request a PayPal client token without a client ID and secret.
+2026-10-23T01:48:48+00:00 DEBUG #3516.WC - [New Request] POST / @ 01:48:47.989
+2026-10-23T01:48:48+00:00 ERROR #3516.WC - SDK v6 client token runtime error: Cannot request a PayPal client token without a client ID and secret.
+2026-10-23T01:49:17+00:00 DEBUG #5538.WC - [New Request] POST / @ 01:49:16.943
+2026-10-23T01:49:17+00:00 ERROR #5538.WC - SDK v6 client token runtime error: Cannot request a PayPal client token without a client ID and secret.
+2026-10-23T01:49:19+00:00 DEBUG #9457.WC - [New Request] POST / @ 01:49:18.554
+2026-10-23T01:49:19+00:00 ERROR #9457.WC - SDK v6 client token runtime error: Cannot request a PayPal client token without a client ID and secret.
+2026-10-23T01:49:33+00:00 DEBUG #9313.WC - [New Request] POST / @ 01:49:33.250
+2026-10-23T01:49:33+00:00 ERROR #9313.WC - SDK v6 client token runtime error: Cannot request a PayPal client token without a client ID and secret.
+2026-10-23T01:49:35+00:00 DEBUG #5417.WC - [New Request] POST / @ 01:49:34.993
+2026-10-23T01:49:35+00:00 ERROR #5417.WC - SDK v6 client token runtime error: Cannot request a PayPal client token without a client ID and secret.

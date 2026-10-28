@@ -1,0 +1,65 @@
+2026-10-24T00:25:28+00:00 DEBUG #7530.WC - [New Request] POST / @ 00:25:26.626
+2026-10-24T00:25:28+00:00 ERROR #7530.WC - SDK v6 client token runtime error: Cannot request a PayPal client token without a client ID and secret.
+2026-10-24T00:25:48+00:00 DEBUG #4967.WC - [New Request] POST / @ 00:25:45.922
+2026-10-24T00:25:48+00:00 ERROR #4967.WC - SDK v6 client token runtime error: Cannot request a PayPal client token without a client ID and secret.
+2026-10-24T00:45:39+00:00 DEBUG #7358 - [New Request] GET /wp-admin/admin.php @ 00:45:34.072
+2026-10-24T00:45:39+00:00 DEBUG #7358 - GET https://api.woocommerce.com/integrations/ppc/v1/customer/partners/K8SKZ36LQBWXJ/merchant-integrations/
+Response: Array
+(
+    [code] => 404
+    [message] => Not Found
+)
+
+Response Body: {"statusCode":404,"error":"Not Found","message":"Not Found"}
+
+2026-10-24T00:45:39+00:00 WARNING #7358 - [Error] Not Found CONTEXT: {"args":{"method":"GET","headers":{"Authorization":"Bearer token","Content-Type":"application/json"}},"response":{"headers":{},"body":"{\"statusCode\":404,\"error\":\"Not Found\",\"message\":\"Not Found\"}","response":{"code":404,"message":"Not Found"},"cookies":[],"filename":null,"http_response":{"data":null,"headers":null,"status":null}}}
+2026-10-24T00:45:51+00:00 DEBUG #1535.REST - [New Request] GET /wp-json/wc/v3/wc_paypal/webhooks @ 00:45:47.231
+2026-10-24T00:45:51+00:00 DEBUG #1535.REST - GET https://api.woocommerce.com/integrations/ppc/v1/notifications/webhooks
+Response: Array
+(
+    [code] => 404
+    [message] => Not Found
+)
+
+Response Body: {"statusCode":404,"error":"Not Found","message":"Not Found"}
+
+2026-10-24T00:47:03+00:00 DEBUG #3203.REST - [New Request] POST /wp-json/wc/v3/wc_paypal/login_link @ 00:47:00.071
+2026-10-24T00:47:03+00:00 INFO #3203.REST - Generating onboarding URL for: production-express_checkout-
+2026-10-24T00:47:05+00:00 DEBUG #3203.REST - POST https://api.woocommerce.com/integrations/ppc/v2/customer/partner-referrals
+Request Body: {"partner_config_override":{"return_url":"http:\/\/dewdrop.local\/wp-admin\/admin.php?page=wc-settings&tab=checkout&section=ppcp-gateway&ppcpToken=eyJrIjoicHJvZHVjdGlvbi1leHByZXNzX2NoZWNrb3V0LSIsInUiOjEsImgiOiJkMDhmMjE1YTNlMTBlMTQyZmMyNjM1NDQyMjg3MDFlOSJ9","return_url_description":"Return to your shop.","show_add_credit_card":false},"products":["EXPRESS_CHECKOUT"],"legal_consents":[{"type":"SHARE_DATA_CONSENT","granted":true}],"operations":[{"operation":"API_INTEGRATION","api_integration_preference":{"rest_api_integration":{"integration_method":"PAYPAL","integration_type":"FIRST_PARTY","first_party_details":{"features":["PAYMENT","REFUND","ADVANCED_TRANSACTIONS_SEARCH","TRACKING_SHIPMENT_READWRITE","BILLING_AGREEMENT"],"seller_nonce":"b5d70012ab0a578885ae2c54e74997ab5537fba826e9adb5f346415cc9a46fbc"}}}}]}
+Response Debug ID: c79ddff312a12
+Response: Array
+(
+    [code] => 201
+    [message] => Created
+)
+
+
+2026-10-24T00:47:21+00:00 DEBUG #3528.REST - [New Request] POST /wp-json/wc/v3/wc_paypal/login_link @ 00:47:18.045
+2026-10-24T00:47:21+00:00 INFO #3528.REST - Generating onboarding URL for: sandbox-express_checkout-
+2026-10-24T00:47:23+00:00 DEBUG #3528.REST - POST https://api.woocommerce.com/integrations/ppcsandbox/v2/customer/partner-referrals
+Request Body: {"partner_config_override":{"return_url":"http:\/\/dewdrop.local\/wp-admin\/admin.php?page=wc-settings&tab=checkout&section=ppcp-gateway&ppcpToken=eyJrIjoic2FuZGJveC1leHByZXNzX2NoZWNrb3V0LSIsInUiOjEsImgiOiIwODA2NjUyOWMzN2QxNzU0MzQ4MDI4NmIwYjNkZWI4OSJ9","return_url_description":"Return to your shop.","show_add_credit_card":false},"products":["EXPRESS_CHECKOUT"],"legal_consents":[{"type":"SHARE_DATA_CONSENT","granted":true}],"operations":[{"operation":"API_INTEGRATION","api_integration_preference":{"rest_api_integration":{"integration_method":"PAYPAL","integration_type":"FIRST_PARTY","first_party_details":{"features":["PAYMENT","REFUND","ADVANCED_TRANSACTIONS_SEARCH","TRACKING_SHIPMENT_READWRITE","BILLING_AGREEMENT"],"seller_nonce":"d8c5e4233773e9af3defb9d4feb0430a7ff0ba55557bfb55b811740caf3c7d5d"}}}}]}
+Response Debug ID: bfa53aa64c8c0
+Response: Array
+(
+    [code] => 201
+    [message] => Created
+)
+
+
+2026-10-24T00:47:58+00:00 DEBUG #1398.REST - [New Request] POST /wp-json/wc/v3/wc_paypal/login_link @ 00:47:56.414
+2026-10-24T00:47:58+00:00 DEBUG #1398.REST - Loaded onboarding URL from cache: production-express_checkout-
+2026-10-24T00:47:58+00:00 INFO #1398.REST - Using cached onboarding URL for: production-express_checkout-
+2026-10-24T00:47:59+00:00 DEBUG #1602.REST - [New Request] POST /wp-json/wc/v3/wc_paypal/login_link @ 00:47:57.197
+2026-10-24T00:47:59+00:00 DEBUG #1602.REST - Loaded onboarding URL from cache: production-express_checkout-
+2026-10-24T00:47:59+00:00 INFO #1602.REST - Using cached onboarding URL for: production-express_checkout-
+2026-10-24T00:49:42+00:00 DEBUG #6990.WC - [New Request] POST / @ 00:49:40.636
+2026-10-24T00:49:42+00:00 ERROR #6990.WC - SDK v6 client token runtime error: Cannot request a PayPal client token without a client ID and secret.
+2026-10-24T00:49:52+00:00 DEBUG #7002.WC - [New Request] POST / @ 00:49:50.217
+2026-10-24T00:49:52+00:00 ERROR #7002.WC - SDK v6 client token runtime error: Cannot request a PayPal client token without a client ID and secret.
+2026-10-24T00:49:54+00:00 DEBUG #1609.WC - [New Request] POST / @ 00:49:52.628
+2026-10-24T00:49:54+00:00 ERROR #1609.WC - SDK v6 client token runtime error: Cannot request a PayPal client token without a client ID and secret.
+2026-10-24T01:44:46+00:00 DEBUG #9467.WC - [New Request] POST / @ 01:44:44.663
+2026-10-24T01:44:46+00:00 ERROR #9467.WC - SDK v6 client token runtime error: Cannot request a PayPal client token without a client ID and secret.
+2026-10-24T01:44:53+00:00 DEBUG #5887.WC - [New Request] POST / @ 01:44:51.950
+2026-10-24T01:44:53+00:00 ERROR #5887.WC - SDK v6 client token runtime error: Cannot request a PayPal client token without a client ID and secret.

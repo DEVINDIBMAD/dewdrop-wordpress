@@ -1,0 +1,28 @@
+2026-10-28T01:06:55+00:00 DEBUG #4244 - [New Request] GET /wp-admin/admin.php @ 01:05:57.840
+2026-10-28T01:06:55+00:00 DEBUG #4244 - GET https://api.woocommerce.com/integrations/ppc/v1/customer/partners/K8SKZ36LQBWXJ/merchant-integrations/
+Response: Array
+(
+    [code] => 404
+    [message] => Not Found
+)
+
+Response Body: {"statusCode":404,"error":"Not Found","message":"Not Found"}
+
+2026-10-28T01:06:55+00:00 WARNING #4244 - [Error] Not Found CONTEXT: {"args":{"method":"GET","headers":{"Authorization":"Bearer token","Content-Type":"application/json"}},"response":{"headers":{},"body":"{\"statusCode\":404,\"error\":\"Not Found\",\"message\":\"Not Found\"}","response":{"code":404,"message":"Not Found"},"cookies":[],"filename":null,"http_response":{"data":null,"headers":null,"status":null}}}
+2026-10-28T01:07:00+00:00 DEBUG #1011.WC - [New Request] POST / @ 01:06:58.987
+2026-10-28T01:07:00+00:00 ERROR #1011.WC - SDK v6 client token runtime error: Cannot request a PayPal client token without a client ID and secret.
+2026-10-28T01:07:30+00:00 DEBUG #9701.REST - [New Request] GET /wp-json/wc/v3/wc_paypal/webhooks @ 01:07:26.206
+2026-10-28T01:07:30+00:00 DEBUG #9701.REST - GET https://api.woocommerce.com/integrations/ppc/v1/notifications/webhooks
+Response: Array
+(
+    [code] => 404
+    [message] => Not Found
+)
+
+Response Body: {"statusCode":404,"error":"Not Found","message":"Not Found"}
+
+2026-10-28T01:07:30+00:00 DEBUG #3902.WC - [New Request] POST / @ 01:07:27.848
+2026-10-28T01:07:30+00:00 ERROR #3902.WC - SDK v6 client token runtime error: Cannot request a PayPal client token without a client ID and secret.
+2026-10-28T01:07:36+00:00 DEBUG #9204.REST - [New Request] POST /wp-json/wc/v3/wc_paypal/login_link @ 01:07:33.464
+2026-10-28T01:07:36+00:00 DEBUG #9204.REST - Loaded onboarding URL from cache: production-express_checkout-
+2026-10-28T01:07:36+00:00 INFO #9204.REST - Using cached onboarding URL for: production-express_checkout-

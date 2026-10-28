@@ -1,0 +1,270 @@
+<?php
+
+
+namespace SendinblueWoocommerce\Managers;
+
+use SendinblueWoocommerce\Managers\ApiManager;
+use SendinblueWoocommerce\Clients\SendinblueClient;
+use SendinblueWoocommerce\Managers\CartEventsManagers;
+
+require_once SENDINBLUE_WC_ROOT_PATH . '/src/managers/api-manager.php';
+require_once SENDINBLUE_WC_ROOT_PATH . '/src/managers/cart-events-manager.php';
+require_once SENDINBLUE_WC_ROOT_PATH . '/src/clients/sendinblue-client.php';
+require_once SENDINBLUE_WC_ROOT_PATH . '/src/managers/logging-manager.php';
+
+/**
+ * Class AdminManager
+ *
+ * @package SendinblueWoocommerce\Managers
+ */
+class AdminManager
+{
+    private $api_manager;
+
+    private $cart_events_manager;
+  
+    function __construct()
+    {
+        $this->api_manager = new ApiManager();
+        $this->cart_events_manager = new CartEventsManagers();
+    }
+
+    public function run()
+    {
+        add_action('admin_menu', array($this, 'adminMenu' ), 110);
+        add_action('rest_api_init', array($this->api_manager, 'add_rest_endpoints'));
+        add_action('wp_head', array($this, 'install_ma_and_chat_script'));
+        add_action('wp_enqueue_scripts', array($this, 'enqueue_carts_fragment'));
+        add_action('wp_footer', array($this, 'brevo_hook_javascript_footer'));
+        add_action('wp_ajax_sendinblue_dismiss_security_banner', array($this, 'dismissSecurityBanner'));
+        add_action('admin_enqueue_scripts', array($this, 'enqueueSecurityBannerScript'));
+        // Retention must not depend on the write path: once a logging window
+        // lapses nothing writes anymore, so without this a captured session
+        // would sit on disk forever while the readme promises deletion. sweep()
+        // also runs the lazy expiry check is_enabled() that the base branch
+        // hooked here, so a lapsed window is still closed on quiet shops. The
+        // closure defers instance() to when admin_init actually fires — run()
+        // executes on front-end requests too.
+        add_action('admin_init', function () {
+            LoggingManager::instance()->sweep();
+        });
+        // Cron fallback for shops whose wp-admin nobody opens after the
+        // window lapses — enable() schedules the daily event, sweep()
+        // unschedules it once no session directory remains.
+        add_action(LoggingManager::CRON_HOOK, function () {
+            LoggingManager::instance()->sweep();
+        });
+    }
+
+    public function dismissSecurityBanner()
+    {
+        check_ajax_referer( 'sendinblue_dismiss_security_banner', 'nonce' );
+        update_option( SENDINBLUE_SECURITY_BANNER_DISMISSED, true );
+        wp_send_json_success();
+    }
+
+    public function enqueueSecurityBannerScript( $hook )
+    {
+        if ( $hook !== 'plugins.php' ) {
+            return;
+        }
+        if ( ! get_option( SENDINBLUE_IS_PLUGIN_INFO_UPDATED, false ) || get_option( SENDINBLUE_SECURITY_BANNER_DISMISSED, false ) ) {
+            return;
+        }
+        $nonce    = wp_create_nonce( 'sendinblue_dismiss_security_banner' );
+        $ajax_url = admin_url( 'admin-ajax.php' );
+        $script   = '(function () {
+            ["sendinblue-security-banner", "sendinblue-security-banner-row"].forEach(function (id) {
+                var banner = document.getElementById(id);
+                if (!banner) { return; }
+                banner.addEventListener("click", function (e) {
+                    if (e.target.classList.contains("notice-dismiss")) {
+                        var data = new FormData();
+                        data.append("action", "sendinblue_dismiss_security_banner");
+                        data.append("nonce", ' . wp_json_encode( $nonce ) . ');
+                        fetch(' . wp_json_encode( $ajax_url ) . ', {
+                            method: "POST",
+                            credentials: "same-origin",
+                            body: data
+                        });
+                    }
+                });
+            });
+        })();';
+        wp_register_script( 'sendinblue-security-banner-dismiss', false, [], false, true );
+        wp_enqueue_script( 'sendinblue-security-banner-dismiss' );
+        wp_add_inline_script( 'sendinblue-security-banner-dismiss', $script );
+    }
+
+    public function adminMenu()
+    {
+        global $wp_roles; 
+        $wp_roles->add_cap( 'administrator', 'view_custom_menu' ); 
+        $wp_roles->add_cap( 'editor', 'view_custom_menu' );
+
+        add_submenu_page(
+            'woocommerce',
+            'Brevo',
+            'Brevo',
+            'view_custom_menu', 
+            'sendinblue', 
+            array( &$this, 'adminOptions' )
+        );
+    }
+
+    public function adminOptions()
+    {
+        try {
+            $user_connection_id = preg_replace('/[^a-zA-Z0-9]/', '', get_option(SENDINBLUE_WC_USER_CONNECTION_ID, null));
+
+            LoggingManager::instance()->info('admin', 'Brevo settings page opened', array(
+                'connected'          => !empty($user_connection_id),
+                'user_connection_id' => empty($user_connection_id) ? null : $user_connection_id,
+            ));
+
+            if (!empty($user_connection_id)) {
+                $settingsUrl = SendinblueClient::INTEGRATION_URL . $user_connection_id . SendinblueClient::SETTINGS_URL;
+                $smsCampaignUrl = SendinblueClient::SMS_CAMPAIGN_URL;
+                $chatUrl = SendinblueClient::SMS_CHAT_URL;
+                $statsUrl = SendinblueClient::SMS_STATISTICS_URL;
+                $emailMarketingUrl = SendinblueClient::EMAIL_MARKETING_URL;
+                $automationWorkflowUrl = SendinblueClient::AUTOMATION_WORKFLOW_URL;
+                $automationUrl = SendinblueClient::AUTOMATION_URL;
+                $chatsUrl = SendinblueClient::CHAT;
+                $dashboardUrl = SendinblueClient::DASHBOARD_URL;
+                $conversationsUrl = SendinblueClient::CONVERSATIONS_URL;
+
+                include SENDINBLUE_WC_ROOT_PATH . '/src/views/admin_menus.php';
+
+                return;
+            }
+
+            $key = $this->api_manager->get_key();
+            if (empty($key)) {
+                $key = $this->api_manager->create_key();
+            }
+
+            $query_params['pluginVersion'] = SENDINBLUE_WC_PLUGIN_VERSION;
+            $query_params['shopVersion'] = SENDINBLUE_WORDPRESS_SHOP_VERSION;
+            $query_params['consumerKey'] = $key->consumer_key;
+            $query_params['consumerSecret'] = $key->consumer_secret;
+            $query_params['language'] = current(explode("_", get_locale()));
+            $query_params['url'] = get_home_url();
+
+            $connectUrl = SendinblueClient::INTEGRATION_URL . SendinblueClient::CONNECT_URL . '?' . http_build_query($query_params);
+
+            include SENDINBLUE_WC_ROOT_PATH . '/src/views/admin_view.php';
+
+        } catch (Exception $e) {
+            // Reaches the merchant as a bare wp_die() with no context anywhere.
+            LoggingManager::instance()->error('admin', 'settings page failed to render', array(
+                'error' => $e->getMessage(),
+            ));
+
+            wp_die(__($e->getMessage()));
+        }
+    }
+    
+    public function brevo_hook_javascript_footer()
+    {
+        // ECOMM-197: capture the email entered on blur ONLY on the checkout page.
+        // Previously this listener was printed on every NON-checkout page and captured the
+        // value of ANY input[type=email] (contact/newsletter forms) on blur, before any form
+        // submission or consent — creating blocklisted contacts without consent (GDPR; see
+        // L3I-144849 / L3I-145109). Restricting to checkout keeps abandoned-cart working
+        // (the shopper's checkout email is still captured and stored as blocklisted), while
+        // the final subscription status is resolved on order completion via the unified flow.
+        $is_checkout = is_checkout();
+        if (!$is_checkout) {
+            return;
+        }
+        $is_account_page = is_account_page();
+        $ajax_url = admin_url('admin-ajax.php');
+        $output = '<script type="text/javascript">
+                    document.body.addEventListener("blur", function(event) {
+                        if (event.target.matches("input[type=\'email\']")) {
+                            const regexEmail = /^[#&*\/=?^{!}~\'_a-z0-9-\+]+([#&*\/=?^{!}~\'_a-z0-9-\+]+)*(\.[#&*\/=?^{!}~\'_a-z0-9-\+]+)*[.]?@[_a-z0-9-]+(\.[_a-z0-9-]+)*(\.[a-z0-9]{2,63})$/i;
+                            if (!regexEmail.test(event.target.value)) {
+                                return false;
+                            }
+                            if (getCookieValueByName("tracking_email") == encodeURIComponent(event.target.value)) {
+                                return false;
+                            }
+                            document.cookie="tracking_email="+encodeURIComponent(event.target.value)+"; path=/";
+                            var isCheckout = ' . ($is_checkout ? 'true' : 'false') . ';
+                			var isAccountPage = ' . ($is_account_page ? 'true' : 'false') . ';
+                            
+                            var subscription_location = "";
+
+                            if (isCheckout) {
+                                subscription_location = "order-checkout";
+                            } else if (isAccountPage) {
+                                subscription_location = "sign-up";
+                            }
+                            var xhrobj = new XMLHttpRequest();
+                            xhrobj.open("POST", "' . esc_url($ajax_url) . '", true);
+                            var params = "action=the_ajax_hook&tracking_email=" + encodeURIComponent(event.target.value) + "&subscription_location=" + encodeURIComponent(subscription_location);
+                            xhrobj.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+                            xhrobj.send(params);
+                            return;
+                        }
+                    }, true);
+                    function getCookieValueByName(name) {
+                        var match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
+                        return match ? match[2] : "";
+                    }
+                </script>';
+        echo $output;
+    }
+
+    public function install_ma_and_chat_script()
+    {
+        $settings = $this->api_manager->get_settings();
+        
+        if (
+            empty($settings) ||
+            !$settings[SendinblueClient::IS_PAGE_TRACKING_ENABLED] ||
+            !$settings[SendinblueClient::MA_KEY]
+        ) {
+            return;
+        }
+
+        $is_checkout = is_checkout();
+        if ($is_checkout) {
+            return;
+        }
+
+        $site_url = get_site_url();
+        $plugin_dir = 'woocommerce-sendinblue-newsletter-subscription';
+        $customDomain = $site_url . "\/wp-content\/plugins\/" . $plugin_dir . "\/";
+
+        $output = '<script type="text/javascript" src="https://cdn.brevo.com/js/sdk-loader.js" async></script>';
+
+        $output .= '<script type="text/javascript">
+            window.Brevo = window.Brevo || [];
+            window.Brevo.push(["init", {
+                client_key: "' . $settings[SendinblueClient::MA_KEY] . '",
+                push: {
+                    customDomain: "' . $customDomain . '"
+                }
+            }]);
+        </script>';
+        
+        echo $output;
+    }
+
+    public function enqueue_carts_fragment()
+    {
+        $settings = $this->api_manager->get_settings();
+
+        if (
+            empty($settings) ||
+            !$settings[SendinblueClient::IS_PAGE_TRACKING_ENABLED] ||
+            !$settings[SendinblueClient::MA_KEY]
+        ) {
+            return;
+        }
+
+        wp_enqueue_script( 'wc-cart-fragments' );
+    }
+}

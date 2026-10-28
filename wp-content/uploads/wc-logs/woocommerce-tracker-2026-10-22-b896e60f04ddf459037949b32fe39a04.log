@@ -1,0 +1,1 @@
+2026-10-22T11:09:01+00:00 WARNING WooCommerce tracker snapshot delivery failed; it will be retried on the next run. CONTEXT: {"http_status":0,"error_code":"http_request_failed","failures":1,"body_bytes":9846}

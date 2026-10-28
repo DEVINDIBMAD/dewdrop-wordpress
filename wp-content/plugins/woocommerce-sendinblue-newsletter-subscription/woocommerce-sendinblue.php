@@ -1,0 +1,354 @@
+<?php
+/**
+ * Plugin Name: Brevo - WooCommerce Email Marketing
+ * Plugin URI: https://www.brevo.com/?r=wporg
+ * Description: Allow users to subscribe to your newsletter via the checkout page and a client to send SMS campaign.
+ * Author: Brevo
+ * Text Domain: woocommerce-sendinblue-newsletter-subscription
+ * Domain Path: /languages
+ * Version: 4.0.62
+ * Author URI: https://www.brevo.com/?r=wporg
+ * Requires at least: 4.3.1
+ * Tested up to: 7.1
+ * Requires PHP: 5.6
+ *
+ * WC requires at least: 3.1
+ * WC tested up to: 6.9.0
+ * License: GPLv2 or later
+ *
+ * @package SendinblueWoocommerce
+ */
+
+/*
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+*/
+
+use SendinblueWoocommerce\Managers\AdminManager;
+use SendinblueWoocommerce\Managers\ApiManager;
+use SendinblueWoocommerce\Managers\UpdatePluginManagers;
+use SendinblueWoocommerce\Managers\CartEventsManagers;
+use SendinblueWoocommerce\Managers\LoggingManager;
+
+define('SENDINBLUE_WC_ROOT_PATH', dirname(__FILE__));
+define('SENDINBLUE_WC_TEXTDOMAIN', 'woocommerce-sendinblue-newsletter-subscription');
+define('SENDINBLUE_WC_API_KEY_ID', 'sendinblue_woocommerce_api_key_id');
+define('SENDINBLUE_WC_API_CONSUMER_KEY', 'sendinblue_woocommerce_consumer_key');
+define('SENDINBLUE_WC_USER_CONNECTION_ID', 'sendinblue_woocommerce_user_connection_id');
+define('SENDINBLUE_WC_SETTINGS', 'sendinblue_woocommerce_user_connection_settings');
+define('SENDINBLUE_WC_EMAIL_SETTINGS', 'sendinblue_woocommerce_email_options_settings');
+define('SENDINBLUE_WC_VERSION_SENT', 'sendinblue_woocommerce_version_sent');
+define('API_KEY_V3_OPTION_NAME', 'sib_wc_api_key_v3');
+define('SENDINBLUE_WC_PLUGIN_VERSION', '4.0.62');
+define('SENDINBLUE_WORDPRESS_SHOP_VERSION', $GLOBALS['wp_version']);
+define('SENDINBLUE_WOOCOMMERCE_UPDATE', 'sendinblue_plugin_update_call_apiv3');
+define('SENDINBLUE_REDIRECT', 'sendinblue_woocommerce_redirect');
+define('SENDINBLUE_WC_ECOMMERCE_REQ', 'sendinblue_woocommerce_ecommerce_requires');
+define('SENDINBLUE_ECOMMERCE_CALLED_TIME', 'ecommerce_called_time');
+define('SENDINBLUE_IS_PLUGIN_INFO_UPDATED', 'sendinblue_is_plugin_info_updated');
+define('SENDINBLUE_SECURITY_BANNER_DISMISSED', 'sendinblue_security_banner_dismissed');
+define('SENDINBLUE_WC_LOGS_HASH', 'sendinblue_woocommerce_logs_hash');
+define('SENDINBLUE_WC_LOGS_DIR', 'sendinblue_woocommerce_logs_dir');
+define('SENDINBLUE_WC_LOGS_ENABLED', 'sendinblue_woocommerce_logs_enabled');
+define('SENDINBLUE_WC_LOGS_EXPIRES', 'sendinblue_woocommerce_logs_expires');
+// Last isPluginLogsEnabled value Brevo propagated, so the /configs accept path
+// acts on edges only (see LoggingManager::remote_transition()).
+define('SENDINBLUE_WC_LOGS_REMOTE', 'sendinblue_woocommerce_logs_remote');
+
+// Debug-logging escape hatch for local development and support reproduction.
+// Off by default — "logging off by default on a fresh install" is an
+// acceptance criterion on SCP-7020. Override from wp-config.php (the guard
+// means a define there wins, same bar as WP_DEBUG); the merchant-facing way
+// to turn logging on is the bounded 24h window, not this constant.
+if (!defined('SENDINBLUE_WC_DEBUG_LOGS')) {
+    define('SENDINBLUE_WC_DEBUG_LOGS', false);
+}
+
+require_once SENDINBLUE_WC_ROOT_PATH . '/src/managers/api-manager.php';
+require_once SENDINBLUE_WC_ROOT_PATH . '/src/managers/admin-manager.php';
+require_once SENDINBLUE_WC_ROOT_PATH . '/src/managers/update-plugin-manager.php';
+require_once SENDINBLUE_WC_ROOT_PATH . '/src/managers/logging-manager.php';
+
+function update_woocom_email_settings()
+{
+    $email_settings = get_option(SENDINBLUE_WC_EMAIL_SETTINGS, null);
+    $email_settings = empty($email_settings) ? null : json_decode($email_settings, true);
+
+    $is_email_options_enabled = isset($email_settings['isEmailOptionsEnabled']) ? $email_settings['isEmailOptionsEnabled'] : false;
+    if (!$is_email_options_enabled) {
+        return;
+    }
+
+    if ($email_settings['isNewOrderEmailEnabled']) {
+        $order_settings = get_option('woocommerce_new_order_settings');
+        $order_settings['enabled'] = "no";
+        update_option('woocommerce_new_order_settings', $order_settings);
+    }
+
+    if ($email_settings['isFailedOrderEmailEnabled']) {
+        $order_settings = get_option('woocommerce_failed_order_settings');
+        $order_settings['enabled'] = "no";
+        update_option('woocommerce_failed_order_settings', $order_settings);
+    }
+
+    if ($email_settings['isCancelledOrderEmailEnabled']) {
+        $order_settings = get_option('woocommerce_cancelled_order_settings');
+        $order_settings['enabled'] = "no";
+        update_option('woocommerce_cancelled_order_settings', $order_settings);
+    }
+
+    if ($email_settings['isOnHoldOrderEmailEnabled']) {
+        $order_settings = get_option('woocommerce_customer_on_hold_order_settings');
+        $order_settings['enabled'] = "no";
+        update_option('woocommerce_customer_on_hold_order_settings', $order_settings);
+    }
+
+    if ($email_settings['isProcessingOrderEmailEnabled']) {
+        $order_settings = get_option('woocommerce_customer_processing_order_settings');
+        $order_settings['enabled'] = "no";
+        update_option('woocommerce_customer_processing_order_settings', $order_settings);
+    }
+
+    if ($email_settings['isRefundedOrderEmailEnabled']) {
+        $order_settings = get_option('woocommerce_customer_refunded_order_settings');
+        $order_settings['enabled'] = "no";
+        update_option('woocommerce_customer_refunded_order_settings', $order_settings);
+    }
+
+    if ($email_settings['isCompletedOrderEmailEnabled']) {
+        $order_settings = get_option('woocommerce_customer_completed_order_settings');
+        $order_settings['enabled'] = "no";
+        update_option('woocommerce_customer_completed_order_settings', $order_settings);
+    }
+
+    if ($email_settings['isCustomerNoteEmailEnabled']) {
+        $customer_note_settings = get_option('woocommerce_customer_note_settings');
+        $customer_note_settings['enabled'] = "no";
+        update_option('woocommerce_customer_note_settings', $customer_note_settings);
+    }
+
+    if ($email_settings['isNewAccountEmailEnabled']) {
+        $new_account_settings = get_option('woocommerce_customer_new_account_settings');
+        $new_account_settings['enabled'] = "no";
+        update_option('woocommerce_customer_new_account_settings', $new_account_settings);
+    }
+}
+
+function sendinblue_woocommerce_load()
+{
+    load_plugin_textdomain( SENDINBLUE_WC_TEXTDOMAIN , false, dirname(plugin_basename(__FILE__)) . '/languages');
+    if (is_multisite() && is_network_admin()) {
+        $transient_key = 'sendinblue_wc_network_update_' . SENDINBLUE_WC_PLUGIN_VERSION;
+        if (!get_site_transient($transient_key)) {
+            $sites = get_sites(array('fields' => 'ids', 'number' => 0));
+            foreach ($sites as $site_id) {
+                switch_to_blog($site_id);
+                do_action('update_to_sendinblue_new_plugin');
+                restore_current_blog();
+            }
+            set_site_transient($transient_key, true, DAY_IN_SECONDS);
+        }
+    } else {
+        do_action('update_to_sendinblue_new_plugin');
+    }
+    $api_manager = new ApiManager();
+    $api_manager->add_hooks();
+    update_woocom_email_settings();
+
+    // Decide and register the checkout opt-in field on `woocommerce_init`, not here on
+    // `plugins_loaded`. WooCommerce + its Blocks package are only guaranteed to be fully
+    // loaded by `woocommerce_init`, so both the block-vs-classic detection
+    // (`CheckoutFields` / `is_checkout_block_default()`) and the additional-field
+    // registration are reliable there. Doing this on `plugins_loaded` can mis-detect the
+    // checkout type (leaving the block opt-in field unregistered, so it never renders/saves)
+    // and WooCommerce also requires additional checkout fields to be registered on
+    // `woocommerce_init` or later. When the opt-in is not captured the order syncs with
+    // opt_in_checked=false and the contact is blocklisted even though the shopper opted in
+    // (ECOMM-222 / L3I-147009, L3I-146774). The classic branch only registers checkout-time
+    // hooks, which fire well after `woocommerce_init`, so moving it here is safe.
+    add_action('woocommerce_init', function () use ($api_manager) {
+        $checkout_block_class_exists = class_exists('Automattic\WooCommerce\Blocks\Domain\Services\CheckoutFields');
+        if ($checkout_block_class_exists && (\Automattic\WooCommerce\Blocks\Utils\CartCheckoutUtils::is_checkout_block_default())) {
+            $cart_events_manager = new CartEventsManagers();
+            $cart_events_manager->add_optin_wc_checkout_block();
+        } else {
+            $api_manager->add_conditional_hooks();
+        }
+    });
+}
+
+//Declare HPOS, Cart Checkout Blocks Compatibility
+add_action( 'before_woocommerce_init', function() {
+	if ( class_exists( \Automattic\WooCommerce\Utilities\FeaturesUtil::class ) ) {
+		\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', __FILE__, true );
+        \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('cart_checkout_blocks', __FILE__, true);
+	}
+} );
+
+function sendinblue_woocommerce_init()
+{
+    if (get_option(SENDINBLUE_REDIRECT, false)) {
+        delete_option(SENDINBLUE_REDIRECT);
+        wp_redirect(add_query_arg('page', 'sendinblue', admin_url('admin.php')));
+    }
+
+    update_plugin_information();
+    $admin_manager = new AdminManager();
+    $admin_manager->run();
+}
+
+function update_plugin_information()
+{
+    $settings = get_option(SENDINBLUE_WC_SETTINGS, null);
+    $settings = empty($settings) ? null : json_decode($settings, true);
+    $hasUserConBeenUpdated = get_option(SENDINBLUE_IS_PLUGIN_INFO_UPDATED, false);
+
+    if (is_array($settings) && $hasUserConBeenUpdated !== true) {
+        $userConIdInSettings = isset($settings['userConnectionId']) ? $settings['userConnectionId'] : "";
+        $userConIdInSettings = preg_replace('/[^a-zA-Z0-9]/', '', $userConIdInSettings);
+        $userConIdInOption =  get_option(SENDINBLUE_WC_USER_CONNECTION_ID, null);
+
+        if (!empty($userConIdInOption) &&  
+                !empty( $userConIdInSettings) &&
+                ($userConIdInOption != $userConIdInSettings)) 
+                {
+            update_option(SENDINBLUE_WC_USER_CONNECTION_ID, $userConIdInSettings);
+            update_option(SENDINBLUE_IS_PLUGIN_INFO_UPDATED, true);
+        }
+    }
+}
+
+function sendinblue_woocommerce_activate()
+{
+    if (!function_exists('is_plugin_active')) {
+        require_once ABSPATH . '/wp-admin/includes/plugin.php';
+    }
+
+    if (!is_plugin_active( 'woocommerce/woocommerce.php' )) {
+        echo 'This plugin version requires WooCommerce 3.1 or newer. Please update WooCommerce to version 3.1 or newer';
+        @trigger_error(__('Please install and activate WooCommerce 3.1 or newer before this.', 'ap'), E_USER_ERROR);
+
+        return;
+    }
+    global $wp_rewrite;
+    $wp_rewrite->flush_rules();
+    (get_option(SENDINBLUE_REDIRECT, null) !== null) ? update_option(SENDINBLUE_REDIRECT, true) : add_option(SENDINBLUE_REDIRECT, true);
+
+    $logger = new LoggingManager();
+    $logger->info('lifecycle', 'plugin activated', array(
+        'plugin_version' => SENDINBLUE_WC_PLUGIN_VERSION,
+        'wp_version'     => SENDINBLUE_WORDPRESS_SHOP_VERSION,
+        'multisite'      => is_multisite(),
+    ));
+}
+
+function sendinblue_woocommerce_deactivate()
+{
+    global $wp_rewrite;
+    $wp_rewrite->flush_rules();
+
+    $logger = new LoggingManager();
+    $logger->info('lifecycle', 'plugin deactivated', array(
+        'plugin_version' => SENDINBLUE_WC_PLUGIN_VERSION,
+    ));
+}
+
+function sendinblue_woocommerce_uninstall()
+{
+    $api_manager = new ApiManager();
+    $api_manager->revoke_key();
+    $api_manager->flush_option_keys(SENDINBLUE_WC_USER_CONNECTION_ID);
+    $api_manager->flush_option_keys(SENDINBLUE_WC_SETTINGS);
+    $api_manager->flush_option_keys(SENDINBLUE_WC_EMAIL_SETTINGS);
+    $api_manager->flush_option_keys(SENDINBLUE_WOOCOMMERCE_UPDATE);
+    $api_manager->flush_option_keys(SENDINBLUE_WC_ECOMMERCE_REQ);
+    $api_manager->flush_option_keys(SENDINBLUE_IS_PLUGIN_INFO_UPDATED);
+
+    // Debug logs are shop data. Remove the files and the directory rather than
+    // leaving them behind under uploads after the plugin is gone.
+    $logging_manager = new LoggingManager();
+    $logging_manager->delete_all();
+    wp_clear_scheduled_hook(LoggingManager::CRON_HOOK);
+    $api_manager->flush_option_keys(SENDINBLUE_WC_LOGS_HASH);
+    $api_manager->flush_option_keys(SENDINBLUE_WC_LOGS_DIR);
+    $api_manager->flush_option_keys(SENDINBLUE_WC_LOGS_ENABLED);
+    $api_manager->flush_option_keys(SENDINBLUE_WC_LOGS_EXPIRES);
+    $api_manager->flush_option_keys(SENDINBLUE_WC_LOGS_REMOTE);
+}
+
+function sendinblue_woocommerce_update()
+{
+    $update_manager = new UpdatePluginManagers();
+    $update_manager->send_settings();
+    $update_manager->post_update();
+}
+
+add_action('plugins_loaded', 'sendinblue_woocommerce_load');
+add_action('init', 'sendinblue_woocommerce_init');
+add_action('update_to_sendinblue_new_plugin', 'sendinblue_woocommerce_update');
+register_activation_hook(SENDINBLUE_WC_ROOT_PATH . '/woocommerce-sendinblue.php', 'sendinblue_woocommerce_activate');
+register_deactivation_hook(SENDINBLUE_WC_ROOT_PATH . '/woocommerce-sendinblue.php', 'sendinblue_woocommerce_deactivate');
+register_uninstall_hook(SENDINBLUE_WC_ROOT_PATH . '/woocommerce-sendinblue.php', 'sendinblue_woocommerce_uninstall');
+
+add_action( 'admin_notices', function () {
+    $screen = get_current_screen();
+    $hasUserConBeenUpdated = get_option(SENDINBLUE_IS_PLUGIN_INFO_UPDATED, false);
+    if ($hasUserConBeenUpdated != true) {
+        return;
+    }
+
+    if ( get_option( SENDINBLUE_SECURITY_BANNER_DISMISSED, false ) ) {
+        return;
+    }
+
+    if ( $screen && $screen->id === 'plugins') {
+        ?>
+        <div class="notice notice-info is-dismissible" id="sendinblue-security-banner">
+            <p>
+                <strong>Brevo:</strong>
+                Your account may have been compromised. Please check for any suspicious activity in your WordPress admin panel.
+            </p>
+        </div>
+        <?php
+    }
+});
+
+add_action(
+    'after_plugin_row_' . plugin_basename( __FILE__ ),
+    function () {
+        $hasUserConBeenUpdated = get_option( SENDINBLUE_IS_PLUGIN_INFO_UPDATED, false );
+        if ($hasUserConBeenUpdated != true) {
+            return;
+        }
+
+        if ( get_option( SENDINBLUE_SECURITY_BANNER_DISMISSED, false ) ) {
+            return;
+        }
+
+        global $wp_list_table;
+        if ( ! isset( $wp_list_table ) || ! ( $wp_list_table instanceof WP_List_Table ) ) {
+            return;
+        }
+        $colspan = $wp_list_table->get_column_count();
+        ?>
+        <tr class="plugin-update-tr">
+            <td colspan="<?php echo esc_attr( $colspan ); ?>" class="plugin-update colspanchange">
+                <div class="update-message notice inline notice-warning notice-alt is-dismissible" id="sendinblue-security-banner-row">
+                    <p>
+                        <strong>Brevo:</strong> Your account may have been compromised. Please check for any suspicious activity in your WordPress admin panel.
+                    </p>
+                </div>
+            </td>
+        </tr>
+        <?php
+    }
+);
